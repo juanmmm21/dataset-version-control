@@ -76,3 +76,61 @@ class DatasetVCS:
         commits[commit.commit_hash] = commit.model_dump()
         with open(self.metadata_file, "w", encoding="utf-8") as f:
             json.dump(commits, f, indent=2, ensure_ascii=False)
+
+    def commit(self, filepath: str, message: str) -> str:
+        """
+        Crea una instantanea (snapshot) del archivo de datos y la registra en el historial.
+        
+        Args:
+            filepath: Ruta al archivo de datos a versionar.
+            message: Descripcion explicativa de los cambios.
+            
+        Returns:
+            El hash del commit generado.
+        """
+        if not os.path.exists(filepath):
+            raise FileNotFoundError(f"El archivo de datos '{filepath}' no existe.")
+            
+        # 1. Calcular hash MD5 del contenido del archivo
+        hasher = hashlib.md5()
+        with open(filepath, "rb") as f:
+            buf = f.read()
+            hasher.update(buf)
+        file_hash = hasher.hexdigest()
+        
+        parent_hash = self._get_head_commit()
+        
+        # Evitamos crear commits duplicados identicos si el HEAD ya apunta al mismo contenido
+        if parent_hash:
+            commits = self._load_commits()
+            if commits.get(parent_hash, {}).get("file_hash") == file_hash:
+                logger.info("El contenido del dataset no ha cambiado. Commit omitido.")
+                return parent_hash
+                
+        # 2. Copiar snapshot del archivo al almacen de objetos oculto
+        snapshot_filename = f"{file_hash}.dat"
+        snapshot_path = os.path.join(self.objects_dir, snapshot_filename)
+        shutil.copy2(filepath, snapshot_path)
+        
+        # 3. Crear identificador unico de commit (basado en hash de metadatos)
+        timestamp = time.time()
+        commit_hasher = hashlib.sha1()
+        commit_hasher.update(f"{parent_hash}{file_hash}{message}{timestamp}".encode("utf-8"))
+        commit_hash = commit_hasher.hexdigest()
+        
+        commit_meta = CommitMetadata(
+            commit_hash=commit_hash,
+            parent_hash=parent_hash,
+            message=message,
+            timestamp=timestamp,
+            filename=os.path.basename(filepath),
+            file_hash=file_hash
+        )
+        
+        # 4. Guardar metadatos y actualizar punteros
+        self._save_commit(commit_meta)
+        self._update_head(commit_hash)
+        
+        logger.info(f"Dataset versionado. Commit: {commit_hash[:8]} | Hash del archivo: {file_hash[:8]}")
+        return commit_hash
+
