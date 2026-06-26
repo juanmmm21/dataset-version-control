@@ -154,4 +154,69 @@ class DatasetVCS:
         self._update_head(commit_hash)
         logger.info(f"Dataset restaurado exitosamente al commit: {commit_hash[:8]}")
 
+    def diff(self, commit_hash_a: str, commit_hash_b: str) -> Dict[str, Any]:
+        """
+        Calcula las diferencias semanticas (diff) de registros entre dos commits
+        asumiendo que los datasets son arreglos JSON estructurados de objetos.
+        
+        Returns:
+            Diccionario con estadisticas: agregados, eliminados, modificados.
+        """
+        commits = self._load_commits()
+        for h in [commit_hash_a, commit_hash_b]:
+            if h not in commits:
+                raise KeyError(f"Commit no encontrado: {h}")
+                
+        file_hash_a = commits[commit_hash_a]["file_hash"]
+        file_hash_b = commits[commit_hash_b]["file_hash"]
+        
+        with open(os.path.join(self.objects_dir, f"{file_hash_a}.dat"), "r", encoding="utf-8") as f:
+            data_a = json.load(f)
+            
+        with open(os.path.join(self.objects_dir, f"{file_hash_b}.dat"), "r", encoding="utf-8") as f:
+            data_b = json.load(f)
+            
+        # Asumimos que son listas de diccionarios
+        if not isinstance(data_a, list) or not isinstance(data_b, list):
+            # Fallback si no son listas (comparacion binaria)
+            return {"type": "binary", "changed": file_hash_a != file_hash_b}
+            
+        # Convertimos listas a mapeos basados en un campo identificador clave ('id', 'guid' o 'instruction')
+        def list_to_map(data_list: List[Dict[str, Any]]) -> Dict[Any, Dict[str, Any]]:
+            mapping = {}
+            for i, item in enumerate(data_list):
+                # Intentamos autodetectar la llave primaria del registro
+                pk = item.get("id") or item.get("guid") or item.get("instruction") or i
+                mapping[pk] = item
+            return mapping
+            
+        map_a = list_to_map(data_a)
+        map_b = list_to_map(data_b)
+        
+        keys_a = set(map_a.keys())
+        keys_b = set(map_b.keys())
+        
+        added_keys = keys_b - keys_a
+        removed_keys = keys_a - keys_b
+        common_keys = keys_a.intersection(keys_b)
+        
+        modified_count = 0
+        for k in common_keys:
+            if map_a[k] != map_b[k]:
+                modified_count += 1
+                
+        return {
+            "type": "json_records",
+            "added_records_count": len(added_keys),
+            "removed_records_count": len(removed_keys),
+            "modified_records_count": modified_count,
+            "total_records_before": len(data_a),
+            "total_records_after": len(data_b)
+        }
 
+    def log(self) -> List[Dict[str, Any]]:
+        """Devuelve la bitacora ordenada cronologicamente de todas las confirmaciones."""
+        commits = self._load_commits()
+        # Ordenamos descendente por timestamp
+        sorted_commits = sorted(commits.values(), key=lambda x: x["timestamp"], reverse=True)
+        return sorted_commits
