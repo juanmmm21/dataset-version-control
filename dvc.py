@@ -134,3 +134,24 @@ class DatasetVCS:
         logger.info(f"Dataset versionado. Commit: {commit_hash[:8]} | Hash del archivo: {file_hash[:8]}")
         return commit_hash
 
+    def checkout(self, commit_hash: str, target_filepath: str) -> None:
+        """
+        Restaura el dataset al estado de un commit especifico del historial.
+        """
+        commits = self._load_commits()
+        if commit_hash not in commits:
+            raise KeyError(f"El commit '{commit_hash}' no existe en el historial de datos.")
+            
+        file_hash = commits[commit_hash]["file_hash"]
+        snapshot_filename = f"{file_hash}.dat"
+        snapshot_path = os.path.join(self.objects_dir, snapshot_filename)
+        
+        if not os.path.exists(snapshot_path):
+            raise FileNotFoundError(f"Objeto de datos corrupto. No se encontro snapshot: {snapshot_path}")
+            
+        # Restauramos el archivo a la ruta de trabajo
+        shutil.copy2(snapshot_path, target_filepath)
+        self._update_head(commit_hash)
+        logger.info(f"Dataset restaurado exitosamente al commit: {commit_hash[:8]}")
+
+
