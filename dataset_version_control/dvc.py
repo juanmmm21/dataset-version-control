@@ -4,8 +4,8 @@ import logging
 import hashlib
 import json
 import time
-from typing import Dict, List, Any, Tuple, Optional
-from pydantic import BaseModel, Field
+from typing import Dict, List, Any, Optional
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
