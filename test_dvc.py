@@ -2,7 +2,7 @@ import unittest
 import os
 import json
 import shutil
-from dvc import DatasetVCS
+from dataset_version_control.dvc import DatasetVCS
 
 
 class TestDatasetVersionControl(unittest.TestCase):

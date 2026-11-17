@@ -76,6 +76,28 @@ This module acts as the Data Control Plane for:
 *   `test_dvc.py`: Unit test suite that checks initialization, commit creation, physical deduplication, restoration (checkout), and graph integrity.
 *   `example.py`: Interactive demonstration of the versioning lifecycle. Modifies records in a JSON dataset simulating insertions and deletions, computes the differences, and restores the initial version.
 
+## Using it as a package
+
+Since `0.1.0` the code lives in the `dataset_version_control` package and the repository is
+pip-installable, so other projects can depend on it instead of copying files
+or editing `sys.path`:
+
+```bash
+pip install "dataset-version-control @ git+https://github.com/juanmmm21/dataset-version-control.git@v0.1.0"
+```
+
+```python
+from dataset_version_control import DatasetVCS, CommitMetadata
+```
+
+The old top-level modules are kept as thin re-exports, so scripts that add
+this folder to `sys.path` keep working. This component imports no other
+ai-core component: they are combined in the `aicore` SDK of
+[ai-core-infra-hub](https://github.com/juanmmm21/ai-core-infra-hub), which
+passes collaborators (vector stores, encoders, tokenizers) in by injection.
+
+Development: `pip install -e ".[dev]"`, then `pytest` and `ruff check .`.
+
 ## Installation and Usage
 
 ### 1. Activate the Local Environment and Install Dependencies

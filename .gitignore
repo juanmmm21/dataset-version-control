@@ -4,3 +4,8 @@ __pycache__/
 .env
 *.log
 .dvc_store/
+
+# Packaging
+build/
+dist/
+*.egg-info/
